@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package services;
+
+message BidirectionalStreamingRequest
+{
+    string name = 1;
+}
+
+message BidirectionalStreamingResponse
+{
+    string greeting = 1;
+}
+
+service BidirectionalStreamingService
+{
+    rpc BidirectionalStream(stream BidirectionalStreamingRequest) returns (stream BidirectionalStreamingResponse);
+}

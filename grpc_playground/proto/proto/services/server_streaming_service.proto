@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package services;
+
+message ServerStreamingRequest
+{
+    string name = 1;
+    uint32 number_of_responses = 2;
+}
+
+message ServerStreamingResponse
+{
+    string greeting = 1;
+}
+
+service ServerStreamingService
+{
+    rpc ServerStream(ServerStreamingRequest) returns (stream ServerStreamingResponse);
+}

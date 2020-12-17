@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package services;
+
+message ClientStreamingRequest
+{
+    string name = 1;
+}
+
+message ClientStreamingResponse
+{
+    string greeting = 1;
+}
+
+service ClientStreamingService
+{
+    rpc ClientStream(stream ClientStreamingRequest) returns (ClientStreamingResponse);
+}

@@ -1,0 +1,12 @@
+[package]
+name = "proto"
+version = "0.1.0"
+authors = ["Norman Link <norman.link@gmx.net>"]
+edition = "2018"
+
+[build-dependencies]
+tonic-build = "0.3"
+
+[dependencies]
+tonic = {version="0.3", features = ["tls"]}
+prost = "0.6"

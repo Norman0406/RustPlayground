@@ -5,6 +5,6 @@ authors = ["Norman Link <norman.link@gmx.net>"]
 edition = "2018"
 
 [dependencies]
-proto = { path = "../proto" }
+proto = {path = "../proto"}
 tonic = {version="0.3", features = ["tls"]}
-tokio = { version = "0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds"] }
+tokio = {version = "0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds"]}

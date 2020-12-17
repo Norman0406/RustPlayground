@@ -9,7 +9,9 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/target/debug/server.exe",
-            "args": [],
+            "args": [
+                "-p",
+                "50001"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

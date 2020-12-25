@@ -6,6 +6,20 @@ trait Shape {
     }
 }
 
+enum Shapes {
+    Circle(Circle),
+    Rectangle(Rectangle)
+}
+
+trait StaticDispatch<T> {
+    fn to_enum(value: T) -> Shapes;
+}
+
+fn print_shape(shape: &dyn Shape) {
+    println!("area {}, perimeter {}, area_per_perimeter {}", shape.area(), shape.perimeter(), shape.area_per_perimeter());
+}
+
+#[derive(Clone)]
 struct Circle {
     radius: f64
 }
@@ -20,6 +34,13 @@ impl Shape for Circle {
     }
 }
 
+impl StaticDispatch<Circle> for Circle {
+    fn to_enum(circle: Circle) -> Shapes {
+        Shapes::Circle(circle)
+    }
+}
+
+#[derive(Clone)]
 struct Rectangle {
     width: f64,
     height: f64
@@ -35,6 +56,18 @@ impl Shape for Rectangle {
     }
 }
 
+impl Rectangle {
+    fn to_enum(rectangle: Rectangle) -> Shapes {
+        Shapes::Rectangle(rectangle)
+    }
+}
+
+impl StaticDispatch<Rectangle> for Rectangle {
+    fn to_enum(rectangle: Rectangle) -> Shapes {
+        Shapes::Rectangle(rectangle)
+    }
+}
+
 fn main() {
     // create plain objects
     let c1 = Circle { radius: 1.0 };
@@ -43,10 +76,10 @@ fn main() {
     let r2 = Rectangle { width: 2.0, height: 3.0 };
 
     println!("=== Plain ===");
-    println!("c1: area {}, perimeter {}, area_per_perimeter {}", c1.area(), c1.perimeter(), c1.area_per_perimeter());
-    println!("c2: area {}, perimeter {}, area_per_perimeter {}", c2.area(), c2.perimeter(), c2.area_per_perimeter());
-    println!("r1: area {}, perimeter {}, area_per_perimeter {}", r1.area(), r1.perimeter(), r1.area_per_perimeter());
-    println!("r2: area {}, perimeter {}, area_per_perimeter {}", r2.area(), r2.perimeter(), r2.area_per_perimeter());
+    print_shape(&c1);
+    print_shape(&c2);
+    print_shape(&r1);
+    print_shape(&r2);
 
     // borrow and store them in a vector
     let mut vec_of_refs: Vec<&dyn Shape> = Vec::new();
@@ -57,20 +90,37 @@ fn main() {
 
     println!("=== Refs ===");
     for shape in vec_of_refs {
-        println!("Shape: area {}, perimeter {}, area_per_perimeter {}", shape.area(), shape.perimeter(), shape.area_per_perimeter());
+        print_shape(shape);
     }
 
     // create a vector of boxed objects (i.e. pointers)
     let mut vec_of_boxes: Vec<Box<dyn Shape>> = Vec::new();
 
-    // create boxed objects by allocating new memory and moving the values
-    vec_of_boxes.push(Box::new(c1));
-    vec_of_boxes.push(Box::new(c2));
-    vec_of_boxes.push(Box::new(r1));
-    vec_of_boxes.push(Box::new(r2));
+    // create boxed objects by allocating new memory and cloning the values (dynamic dispatch)
+    vec_of_boxes.push(Box::new(c1.clone()));
+    vec_of_boxes.push(Box::new(c2.clone()));
+    vec_of_boxes.push(Box::new(r1.clone()));
+    vec_of_boxes.push(Box::new(r2.clone()));
 
     println!("=== Boxes ===");
     for shape in vec_of_boxes {
-        println!("Shape: area {}, perimeter {}, area_per_perimeter {}", shape.area(), shape.perimeter(), shape.area_per_perimeter());
+        print_shape(shape.as_ref());
+    }
+
+    // create a vector of enums (i.e. variants)
+    let mut vec_of_enums: Vec<Shapes> = Vec::new();
+
+    // move existing objects into enums (static dispatch)
+    vec_of_enums.push(Circle::to_enum(c1));
+    vec_of_enums.push(Circle::to_enum(c2));
+    vec_of_enums.push(Rectangle::to_enum(r1));
+    vec_of_enums.push(Rectangle::to_enum(r2));
+
+    println!("=== Enums ===");
+    for shape in vec_of_enums {
+        match shape {
+            Shapes::Circle(circle) => print_shape(&circle),
+            Shapes::Rectangle(rectangle) => print_shape(&rectangle)
+        }
     }
 }

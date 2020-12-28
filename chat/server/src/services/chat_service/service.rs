@@ -6,74 +6,16 @@ use proto::chat;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
-
-enum UserNotification {
-    NewUser(User),
-    UserRemoved(User),
-}
-
-struct UserList {
-    users: Vec<User>,
-    recv_user_notification: std::sync::mpsc::Receiver<UserNotification>,
-    send_user_notification: std::sync::mpsc::Sender<UserNotification>,
-}
-
-impl UserList {
-    pub fn add_user(&mut self, user_id: &str) -> Result<(), &str> {
-        // check if user exists
-        match self.users.iter().position(|v| v.id == user_id) {
-            Some(_index) => return Err("User already exists"),
-            None => ()
-        };
-
-        println!("add user {}", user_id);
-
-        let user = User {
-            id: String::from(user_id),
-        };
-
-        self.users.push(user.clone());
-        match self
-            .send_user_notification
-            .send(UserNotification::NewUser(user))
-        {
-            Ok(()) => Ok(()),
-            Err(_) => Err("could not send add_user notification"),
-        }
-    }
-
-    pub fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
-        println!("remove user {}", user_id);
-
-        let user = match self.users.iter().position(|v| v.id == user_id) {
-            Some(index) => self.users.remove(index),
-            None => return Err(String::from("user id not found")),
-        };
-
-        match self
-            .send_user_notification
-            .send(UserNotification::UserRemoved(user))
-        {
-            Ok(()) => Ok(()),
-            Err(_) => Err(String::from("could not send remove_user notification")),
-        }
-    }
-}
+use super::user_list::UserList;
 
 pub struct ChatService {
-    users: Arc<Mutex<UserList>>, //users: Mutex<Vec<String>>,
+    users: Arc<Mutex<UserList>>,
 }
 
 impl ChatService {
     pub fn new() -> chat_service_server::ChatServiceServer<ChatService> {
-        let (tx, rx) = std::sync::mpsc::channel();
-
         chat_service_server::ChatServiceServer::new(ChatService {
-            users: Arc::new(Mutex::new(UserList {
-                users: vec![],
-                recv_user_notification: rx,
-                send_user_notification: tx,
-            })),
+            users: Arc::new(Mutex::new(UserList::new()))
         })
     }
 }

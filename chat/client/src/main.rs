@@ -9,39 +9,57 @@ async fn connect(
     clients: mpsc::Sender<Option<ChatServiceClient<tonic::transport::Channel>>>,
     user_id: String,
 ) {
-    let endpoint = Endpoint::from_static("http://localhost:50051");
+    let endpoint = Endpoint::from_static("http://localhost:50001");
 
-    let channel: tonic::transport::Channel;
-    loop {
-        channel = match endpoint.connect().await {
-            Ok(channel) => channel,
-            Err(_error) => continue,
-        };
+    // let channel: tonic::transport::Channel;
+    // loop {
+    //     channel = match endpoint.connect().await {
+    //         Ok(channel) => channel,
+    //         Err(_error) => continue,
+    //     };
 
-        break;
-    }
+    //     break;
+    // }
+
+    let channel = match endpoint.connect().await {
+        Ok(channel) => channel,
+        Err(_error) => {
+            panic!("Error");
+        }
+    };
 
     println!("Connected to {}", endpoint.uri());
 
     // create a client and append the user id to the metadata
     let client = ChatServiceClient::with_interceptor(channel, move |mut req: Request<()>| {
+        let user_id = user_id.clone();
+        println!("Name: {}", user_id.as_str());
+
         req.metadata_mut().insert(
             "user_id",
-            tonic::metadata::MetadataValue::from_str(user_id.as_str()).unwrap(),
+            tonic::metadata::AsciiMetadataValue::from_str(&user_id).unwrap(),
         );
 
         Ok(req)
     });
+
     clients.send(Some(client)).unwrap();
+}
+
+fn get_user_id() -> String {
+    print!("User-ID: ");
+    std::io::stdout().flush().unwrap();
+
+    let mut user_id = String::new();
+    std::io::stdin().read_line(&mut user_id).unwrap();
+    user_id.retain(|c| !c.is_control());
+
+    user_id
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    print!("User-ID: ");
-    std::io::stdout().flush()?;
-
-    let mut user_id = String::new();
-    std::io::stdin().read_line(&mut user_id)?;
+    let user_id = get_user_id();
 
     let (sender, receiver) = mpsc::channel();
 
@@ -50,7 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     loop {
-        if let Some(mut client) = receiver.recv().unwrap() {
+        let client = receiver.recv().unwrap();
+
+        if let Some(mut client) = client {
             let mut receive_stream = client
                 .receive(Request::new(ReceiveRequest {}))
                 .await?

@@ -20,6 +20,14 @@ struct UserList {
 
 impl UserList {
     pub fn add_user(&mut self, user_id: &str) -> Result<(), &str> {
+        // check if user exists
+        match self.users.iter().position(|v| v.id == user_id) {
+            Some(_index) => return Err("User already exists"),
+            None => ()
+        };
+
+        println!("add user {}", user_id);
+
         let user = User {
             id: String::from(user_id),
         };
@@ -35,6 +43,8 @@ impl UserList {
     }
 
     pub fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
+        println!("remove user {}", user_id);
+
         let user = match self.users.iter().position(|v| v.id == user_id) {
             Some(index) => self.users.remove(index),
             None => return Err(String::from("user id not found")),
@@ -109,8 +119,6 @@ impl chat_service_server::ChatService for ChatService {
             }
         }
 
-        //let request = request.into_inner();
-
         let (mut tx, rx) = mpsc::channel(4);
 
         let (finish_tx, finish_rx) = oneshot::channel();
@@ -135,12 +143,6 @@ impl chat_service_server::ChatService for ChatService {
 
             // wait until stream is finished
             finish_rx.await.unwrap();
-            tx.send(Err(Status::internal(format!(
-                "Error removing user: {}",
-                ""
-            ))))
-            .await
-            .unwrap();
 
             // remove user from internal list
             let remove_user_result: Result<(), String>;
@@ -156,8 +158,6 @@ impl chat_service_server::ChatService for ChatService {
                         .unwrap();
                 }
             };
-
-            println!(" /// done sending");
         });
 
         Ok(Response::new(rx))

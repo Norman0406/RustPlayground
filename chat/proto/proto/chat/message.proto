@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package chat;
+
+import "google/protobuf/timestamp.proto";
+import "chat/user.proto";
+
+message MessageId
+{
+    string id = 1;
+}
+
+message MessageContent
+{
+    google.protobuf.Timestamp time_sent = 1;
+    string content = 2;
+}
+
+message OutgoingNotification
+{
+    message Typing
+    {
+        google.protobuf.Timestamp expiration = 2;
+    }
+
+    message Read
+    {
+        MessageId message_id = 1;
+        google.protobuf.Timestamp time_read = 2;
+    }
+
+    User to = 1;
+
+    oneof types {
+        Typing typing = 2;
+        Read read = 3;
+        MessageContent message = 4;
+    }
+}
+
+message IncomingNotification
+{
+    message Delivered
+    {
+        MessageId message_id = 1;
+        google.protobuf.Timestamp time_delivered = 2;
+    }
+
+    message Read
+    {
+        MessageId message_id = 1;
+        google.protobuf.Timestamp time_read = 2;
+    }
+
+    message Typing
+    {
+        bool is_typing = 1;
+    }
+
+    message Online
+    {
+        bool is_online = 1;
+    }
+
+    message Message
+    {
+        MessageId message_id = 1;
+        MessageContent message_content = 2;
+    }
+
+    User from = 1;
+
+    oneof types {
+        Delivered delivered = 2;
+        Read read = 3;
+        Typing typing = 4;
+        Online online = 5;
+        Message message = 6;
+    }
+}

@@ -2,8 +2,8 @@ use proto::chat;
 use tokio::sync::mpsc;
 
 pub struct User {
-    user: chat::User,
-    notifications_tx: mpsc::Sender<chat::IncomingNotification>,
+    pub user: chat::User,
+    pub notifications_tx: mpsc::Sender<chat::IncomingNotification>,
 }
 
 impl User {
@@ -107,5 +107,14 @@ impl UserList {
         }
 
         Ok(())
+    }
+
+    pub fn get_user(&self, user_id: &str) -> Result<&User, &str> {
+        let user = match self.users.iter().position(|v| v.user.id == user_id) {
+            Some(index) => &self.users[index],
+            None => return Err("user id not found"),
+        };
+
+        Ok(user)
     }
 }

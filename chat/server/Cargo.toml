@@ -10,3 +10,4 @@ tonic = { version="0.3", features = ["tls"] }
 tokio = { version = "0.2", features = ["rt-threaded", "time", "stream", "fs", "macros", "uds", "signal"] }
 futures = "0.3"
 structopt = "0.3"
+uuid = { version = "0.8", features = ["v5"] }

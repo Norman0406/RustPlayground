@@ -96,8 +96,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             read.message_id.unwrap().id
                         );
                     }
-                    chat::incoming_notification::Types::Typing(_typing) => {
-                        println!("User {} is typing", from_user_id);
+                    chat::incoming_notification::Types::Typing(typing) => {
+                        let typing_nottyping = match typing.is_typing {
+                            true => "typing",
+                            false => "not typing",
+                        };
+
+                        println!("User {} is {}", from_user_id, typing_nottyping);
                     }
                     chat::incoming_notification::Types::Online(online) => {
                         let online_offline = match online.is_online {

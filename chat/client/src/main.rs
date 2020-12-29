@@ -77,10 +77,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .into_inner();
 
             while let Some(response) = receive_stream.message().await? {
-                println!(
-                    "Notification received from {}",
-                    response.notification.unwrap().from.unwrap().id
-                );
+                let notification = response.notification.unwrap();
+                let from_user_id = notification.from.unwrap().id;
+
+                let notification_type = notification.types.unwrap();
+                match notification_type {
+                    chat::incoming_notification::Types::Delivered(delivered) => {
+                        println!(
+                            "Message {} was delivered to user {}",
+                            delivered.message_id.unwrap().id,
+                            from_user_id
+                        );
+                    }
+                    chat::incoming_notification::Types::Read(read) => {
+                        println!(
+                            "User {} read message {}",
+                            from_user_id,
+                            read.message_id.unwrap().id
+                        );
+                    }
+                    chat::incoming_notification::Types::Typing(_typing) => {
+                        println!("User {} is typing", from_user_id);
+                    }
+                    chat::incoming_notification::Types::Online(online) => {
+                        let online_offline = match online.is_online {
+                            true => "online",
+                            false => "offline",
+                        };
+
+                        println!("User {} is {}", from_user_id, online_offline);
+                    }
+                    chat::incoming_notification::Types::Message(message) => {
+                        println!(
+                            "Message from user {}: {}",
+                            from_user_id,
+                            message.message_content.unwrap().content
+                        );
+                    }
+                }
             }
         }
 

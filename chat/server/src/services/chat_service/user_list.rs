@@ -1,65 +1,111 @@
 use proto::chat;
-use chat::User;
+use tokio::sync::mpsc;
 
-pub enum UserNotification {
-    NewUser(User),
-    UserRemoved(User),
+pub struct User {
+    user: chat::User,
+    notifications_tx: mpsc::Sender<chat::IncomingNotification>,
+}
+
+impl User {
+    fn new(user_id: &str) -> (User, mpsc::Receiver<chat::IncomingNotification>) {
+        let (notifications_tx, notifications_rx) = mpsc::channel(4);
+
+        let user = User {
+            user: chat::User {
+                id: String::from(user_id),
+            },
+            notifications_tx: notifications_tx,
+        };
+
+        (user, notifications_rx)
+    }
 }
 
 pub struct UserList {
-    pub users: Vec<User>,
-    pub notifications_rx: std::sync::mpsc::Receiver<UserNotification>,
-    notifications_tx: std::sync::mpsc::Sender<UserNotification>,
+    users: Vec<User>,
 }
 
 impl UserList {
     pub fn new() -> UserList {
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        UserList {
-            users: vec![],
-            notifications_rx: rx,
-            notifications_tx: tx,
-        }
+        UserList { users: vec![] }
     }
 
-    pub fn add_user(&mut self, user_id: &str) -> Result<(), &str> {
+    pub fn create_user(
+        &mut self,
+        user_id: &str,
+    ) -> Result<mpsc::Receiver<chat::IncomingNotification>, &str> {
         // check if user exists
-        match self.users.iter().position(|v| v.id == user_id) {
+        match self.users.iter().position(|v| v.user.id == user_id) {
             Some(_index) => return Err("User already exists"),
             None => (),
         };
 
-        println!("add user {}", user_id);
+        let (mut user, notifications_rx) = User::new(user_id);
 
-        let user = User {
-            id: String::from(user_id),
-        };
+        for other_user in &mut self.users {
+            // notify other users that this user is online
+            let send_result = other_user
+                .notifications_tx
+                .try_send(chat::IncomingNotification {
+                    from: Some(user.user.clone()),
+                    types: Some(chat::incoming_notification::Types::Online(
+                        chat::incoming_notification::Online { is_online: true },
+                    )),
+                });
 
-        self.users.push(user.clone());
-        match self
-            .notifications_tx
-            .send(UserNotification::NewUser(user))
-        {
-            Ok(()) => Ok(()),
-            Err(_) => Err("could not send add_user notification"),
+            if send_result.is_err() {
+                println!(
+                    "Could not send online notification to user {}",
+                    user.user.id
+                );
+            }
+
+            // notify the new user of all currently active users
+            let send_result = user.notifications_tx.try_send(chat::IncomingNotification {
+                from: Some(other_user.user.clone()),
+                types: Some(chat::incoming_notification::Types::Online(
+                    chat::incoming_notification::Online { is_online: true },
+                )),
+            });
+
+            if send_result.is_err() {
+                println!(
+                    "Could not send online notification to user {}",
+                    user.user.id
+                );
+            }
         }
+
+        self.users.push(user);
+
+        Ok(notifications_rx)
     }
 
     pub fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
-        println!("remove user {}", user_id);
-
-        let user = match self.users.iter().position(|v| v.id == user_id) {
+        let user = match self.users.iter().position(|v| v.user.id == user_id) {
             Some(index) => self.users.remove(index),
             None => return Err(String::from("user id not found")),
         };
 
-        match self
-            .notifications_tx
-            .send(UserNotification::UserRemoved(user))
-        {
-            Ok(()) => Ok(()),
-            Err(_) => Err(String::from("could not send remove_user notification")),
+        // notify other users that this user is not online anymore
+        for other_user in &mut self.users {
+            let send_result = other_user
+                .notifications_tx
+                .try_send(chat::IncomingNotification {
+                    from: Some(user.user.clone()),
+                    types: Some(chat::incoming_notification::Types::Online(
+                        chat::incoming_notification::Online { is_online: false },
+                    )),
+                });
+
+            if send_result.is_err() {
+                eprintln!(
+                    "Could not send offline notification to user {}",
+                    user.user.id
+                );
+            }
         }
+
+        Ok(())
     }
 }

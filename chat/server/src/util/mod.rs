@@ -1,3 +1,3 @@
-mod drop_receiver;
+mod response_stream;
 
-pub use drop_receiver::DropReceiver;
+pub use response_stream::ResponseStream;

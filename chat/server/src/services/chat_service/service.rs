@@ -1,12 +1,12 @@
+use super::user_list::UserList;
 use crate::util;
 use chat::chat_service_server;
 use chat::*;
 use futures::channel::oneshot;
+use futures::stream::StreamExt;
 use proto::chat;
 use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
-use super::user_list::UserList;
 
 pub struct ChatService {
     users: Arc<Mutex<UserList>>,
@@ -15,14 +15,14 @@ pub struct ChatService {
 impl ChatService {
     pub fn new() -> chat_service_server::ChatServiceServer<ChatService> {
         chat_service_server::ChatServiceServer::new(ChatService {
-            users: Arc::new(Mutex::new(UserList::new()))
+            users: Arc::new(Mutex::new(UserList::new())),
         })
     }
 }
 
 #[tonic::async_trait]
 impl chat_service_server::ChatService for ChatService {
-    type ReceiveStream = util::DropReceiver<Result<ReceiveResponse, Status>>;
+    type ReceiveStream = util::ResponseStream<Result<ReceiveResponse, Status>>;
 
     async fn send(&self, request: Request<SendRequest>) -> Result<Response<SendResponse>, Status> {
         println!("Got a request from {:?}", request.remote_addr());
@@ -50,58 +50,52 @@ impl chat_service_server::ChatService for ChatService {
             Err(err) => return Err(Status::internal(err.to_string())),
         };
 
+        let notifications_rx;
         {
             let mut users = match self.users.lock() {
                 Ok(guard) => guard,
                 Err(_) => return Err(Status::internal("unable to acquire lock")),
             };
-            match users.add_user(user_id) {
-                Ok(()) => {}
+            notifications_rx = match users.create_user(user_id) {
+                Ok(rx) => rx,
                 Err(e) => return Err(Status::internal(e)),
             }
         }
 
-        let (mut tx, rx) = mpsc::channel(4);
-
         let (finish_tx, finish_rx) = oneshot::channel();
-
-        // create a new receiver that is able to detect when the connection is closed
-        let rx = util::DropReceiver::new(rx, finish_tx);
 
         let users = self.users.clone();
         let user_id = String::from(user_id);
 
         tokio::spawn(async move {
-            let response = ReceiveResponse {
-                notification: Some(IncomingNotification {
-                    from: Some(User {
-                        id: String::from("test"),
-                    }),
-                    types: None,
-                }),
-            };
-
-            tx.send(Ok(response)).await.unwrap();
-
             // wait until stream is finished
             finish_rx.await.unwrap();
 
             // remove user from internal list
-            let remove_user_result: Result<(), String>;
+            let remove_user_result;
             {
                 let mut users = users.lock().unwrap();
                 remove_user_result = users.remove_user(user_id.as_str());
             }
+
             match remove_user_result {
                 Ok(()) => {}
                 Err(e) => {
-                    tx.send(Err(Status::internal(format!("Error removing user: {}", e))))
-                        .await
-                        .unwrap();
+                    eprintln!("Error removing user: {}", e);
                 }
             };
         });
 
-        Ok(Response::new(rx))
+        let response_stream = util::ResponseStream::new_with_close_notification(
+            finish_tx,
+            notifications_rx
+                .map(|notification| {
+                    Ok(ReceiveResponse {
+                        notification: Some(notification),
+                    })
+                })
+        );
+
+        Ok(Response::new(response_stream))
     }
 }

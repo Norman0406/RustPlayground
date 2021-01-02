@@ -1,5 +1,5 @@
+use crate::user_list::AuthorizeUsers;
 use crate::util;
-use crate::UserList;
 use chat::authentication_service_server;
 use chat::*;
 use futures::channel::oneshot;
@@ -9,12 +9,12 @@ use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 
 pub struct AuthenticationService {
-    users: Arc<Mutex<UserList>>,
+    users: Arc<Mutex<dyn AuthorizeUsers + Send + Sync>>,
 }
 
 impl AuthenticationService {
     pub fn new(
-        users: Arc<Mutex<UserList>>,
+        users: Arc<Mutex<dyn AuthorizeUsers + Send + Sync>>,
     ) -> authentication_service_server::AuthenticationServiceServer<AuthenticationService> {
         let service = AuthenticationService { users: users };
 

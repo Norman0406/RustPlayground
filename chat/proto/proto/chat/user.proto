@@ -5,4 +5,5 @@ package chat;
 message User
 {
     string id = 1;
+    string name = 2;
 }

@@ -14,12 +14,13 @@ pub struct UserList {
 
 // TODO: traits to use for administration and authentication by AuthenticationService and ChatService
 
-impl UserList {
-    pub fn new() -> UserList {
-        UserList { users: vec![] }
-    }
+pub trait AuthorizeUsers {
+    fn create_user(&mut self, user_id: &str) -> Result<UserData, &str>;
+    fn remove_user(&mut self, user_id: &str) -> Result<(), String>;
+}
 
-    pub fn create_user(&mut self, user_id: &str) -> Result<UserData, &str> {
+impl AuthorizeUsers for UserList {
+    fn create_user(&mut self, user_id: &str) -> Result<UserData, &str> {
         // check if user exists
         if self.users.iter().position(|v| v.id() == user_id).is_some() {
             return Err("User already exists");
@@ -66,7 +67,7 @@ impl UserList {
         Ok(user_data)
     }
 
-    pub fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
+    fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
         let mut user = match self.users.iter().position(|v| v.id() == user_id) {
             Some(index) => self.users.remove(index),
             None => return Err(String::from("user id not found")),
@@ -77,8 +78,14 @@ impl UserList {
 
         Ok(())
     }
+}
 
-    pub fn set_user_online(&mut self, user: &mut User, is_online: bool) {
+impl UserList {
+    pub fn new() -> UserList {
+        UserList { users: vec![] }
+    }
+
+    fn set_user_online(&mut self, user: &mut User, is_online: bool) {
         user.user_data.set_online(is_online);
 
         let user_data = user.user_data.clone();

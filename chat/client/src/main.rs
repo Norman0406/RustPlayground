@@ -101,7 +101,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             while let Some(response) = receive_stream.message().await? {
                 let notification = response.notification.unwrap();
-                let from_user_id = notification.from.unwrap().id;
+                let user = notification.from.unwrap();
+                let from_user_id = user.id;
+                let from_user_name = user.name;
 
                 let notification_type = notification.types.unwrap();
                 match notification_type {
@@ -133,7 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             false => "offline",
                         };
 
-                        println!("User {} is {}", from_user_id, online_offline);
+                        println!("User {} is {}", from_user_name, online_offline);
                     }
                     chat::incoming_notification::Types::Message(message) => {
                         println!(

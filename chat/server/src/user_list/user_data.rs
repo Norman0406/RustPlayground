@@ -5,7 +5,6 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct UserData {
     user: chat::User,
-    name: String,
     token: String,
     is_online: bool,
     notifications_tx: mpsc::Sender<chat::IncomingNotification>,
@@ -19,8 +18,8 @@ impl UserData {
         UserData {
             user: chat::User {
                 id: id.to_hyphenated().to_string(),
+                name: name,
             },
-            name: name,
             token: token.to_hyphenated().to_string(),
             is_online: false,
             notifications_tx: sender,
@@ -36,7 +35,7 @@ impl UserData {
     }
 
     pub fn name(&self) -> String {
-        self.name.clone()
+        self.user.name.clone()
     }
 
     pub fn token(&self) -> String {

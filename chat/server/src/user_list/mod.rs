@@ -1,58 +1,12 @@
+mod user;
+mod user_data;
+
 use proto::chat;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tonic::{Request, Status};
-use uuid::Uuid;
-
-#[derive(Clone)]
-pub struct UserData {
-    pub user: chat::User,
-    pub name: String,
-    pub token: String,
-    pub is_online: bool,
-    pub notifications_tx: mpsc::Sender<chat::IncomingNotification>,
-}
-
-impl UserData {
-    pub fn id(&self) -> String {
-        self.user.id.clone()
-    }
-}
-
-pub struct User {
-    pub user_data: UserData,
-    notifications_rx: Option<mpsc::Receiver<chat::IncomingNotification>>,
-}
-
-impl User {
-    fn new(name: &str) -> User {
-        let (notifications_tx, notifications_rx) = mpsc::channel(4);
-
-        let id = Uuid::new_v5(&Uuid::NAMESPACE_OID, "chat".as_bytes());
-        let token = Uuid::new_v5(&Uuid::NAMESPACE_OID, "chat".as_bytes());
-
-        User {
-            user_data: UserData {
-                user: chat::User {
-                    id: id.to_hyphenated().to_string(),
-                },
-                name: String::from(name),
-                token: token.to_hyphenated().to_string(),
-                is_online: false,
-                notifications_tx: notifications_tx,
-            },
-            notifications_rx: Some(notifications_rx),
-        }
-    }
-
-    pub fn take_receiver(&mut self) -> mpsc::Receiver<chat::IncomingNotification> {
-        self.notifications_rx.take().unwrap()
-    }
-
-    pub fn id(&self) -> String {
-        self.user_data.id()
-    }
-}
+use user::User;
+use user_data::UserData;
 
 pub struct UserList {
     users: Vec<User>,
@@ -65,12 +19,7 @@ impl UserList {
 
     pub fn create_user(&mut self, user_id: &str) -> Result<UserData, &str> {
         // check if user exists
-        if self
-            .users
-            .iter()
-            .position(|v| v.user_data.user.id == user_id)
-            .is_some()
-        {
+        if self.users.iter().position(|v| v.id() == user_id).is_some() {
             return Err("User already exists");
         }
 
@@ -78,40 +27,33 @@ impl UserList {
 
         for other_user in &mut self.users {
             // notify other users that this user is online
-            let send_result =
-                other_user
-                    .user_data
-                    .notifications_tx
-                    .try_send(chat::IncomingNotification {
-                        from: Some(user.user_data.user.clone()),
-                        types: Some(chat::incoming_notification::Types::Online(
-                            chat::incoming_notification::Online { is_online: true },
-                        )),
-                    });
+            let send_result = other_user
+                .user_data
+                .sender()
+                .try_send(chat::IncomingNotification {
+                    from: Some(user.user_data.user()),
+                    types: Some(chat::incoming_notification::Types::Online(
+                        chat::incoming_notification::Online { is_online: true },
+                    )),
+                });
 
             if send_result.is_err() {
-                println!(
-                    "Could not send online notification to user {}",
-                    user.user_data.user.id
-                );
+                println!("Could not send online notification to user {}", user.id());
             }
 
             // notify the new user of all currently active users
-            let send_result =
-                user.user_data
-                    .notifications_tx
-                    .try_send(chat::IncomingNotification {
-                        from: Some(other_user.user_data.user.clone()),
-                        types: Some(chat::incoming_notification::Types::Online(
-                            chat::incoming_notification::Online { is_online: true },
-                        )),
-                    });
+            let send_result = user
+                .user_data
+                .sender()
+                .try_send(chat::IncomingNotification {
+                    from: Some(other_user.user_data.user()),
+                    types: Some(chat::incoming_notification::Types::Online(
+                        chat::incoming_notification::Online { is_online: true },
+                    )),
+                });
 
             if send_result.is_err() {
-                println!(
-                    "Could not send online notification to user {}",
-                    user.user_data.user.id
-                );
+                println!("Could not send online notification to user {}", user.id());
             }
         }
 
@@ -123,11 +65,7 @@ impl UserList {
     }
 
     pub fn remove_user(&mut self, user_id: &str) -> Result<(), String> {
-        let mut user = match self
-            .users
-            .iter()
-            .position(|v| v.user_data.user.id == user_id)
-        {
+        let mut user = match self.users.iter().position(|v| v.id() == user_id) {
             Some(index) => self.users.remove(index),
             None => return Err(String::from("user id not found")),
         };
@@ -139,44 +77,39 @@ impl UserList {
     }
 
     pub fn set_user_online(&mut self, user: &mut User, is_online: bool) {
-        user.user_data.is_online = is_online;
+        user.user_data.set_online(is_online);
 
         let user_data = user.user_data.clone();
 
         for other_user in &mut self.users {
             // don't send this notification to the current user
-            if other_user.user_data.user.id == user.user_data.user.id {
+            if other_user.id() == user.id() {
                 continue;
             }
 
-            let send_result =
-                other_user
-                    .user_data
-                    .notifications_tx
-                    .try_send(chat::IncomingNotification {
-                        from: Some(user_data.user.clone()),
-                        types: Some(chat::incoming_notification::Types::Online(
-                            chat::incoming_notification::Online {
-                                is_online: is_online,
-                            },
-                        )),
-                    });
+            let send_result = other_user
+                .user_data
+                .sender()
+                .try_send(chat::IncomingNotification {
+                    from: Some(user_data.user()),
+                    types: Some(chat::incoming_notification::Types::Online(
+                        chat::incoming_notification::Online {
+                            is_online: is_online,
+                        },
+                    )),
+                });
 
             if send_result.is_err() {
                 eprintln!(
                     "Could not send offline notification to user {}",
-                    user_data.user.id
+                    user_data.id()
                 );
             }
         }
     }
 
     pub fn get_user(&self, user_id: &str) -> Result<&User, String> {
-        let user = match self
-            .users
-            .iter()
-            .position(|v| v.user_data.user.id == user_id)
-        {
+        let user = match self.users.iter().position(|v| v.id() == user_id) {
             Some(index) => &self.users[index],
             None => return Err(String::from("user id not found")),
         };
@@ -185,11 +118,7 @@ impl UserList {
     }
 
     fn get_user_mut(&mut self, user_id: &str) -> Result<&mut User, String> {
-        let user = match self
-            .users
-            .iter()
-            .position(|v| v.user_data.user.id == user_id)
-        {
+        let user = match self.users.iter().position(|v| v.id() == user_id) {
             Some(index) => &mut self.users[index],
             None => return Err(String::from("user id not found")),
         };
@@ -245,7 +174,7 @@ impl UserList {
         match self
             .users
             .iter()
-            .position(|v| v.user_data.user.id == user_id && v.user_data.token == user_token)
+            .position(|v| v.id() == user_id && v.user_data.token() == user_token)
         {
             Some(_index) => true,
             None => false,

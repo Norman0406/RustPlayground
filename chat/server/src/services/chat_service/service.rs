@@ -52,7 +52,7 @@ impl chat_service_server::ChatService for ChatService {
             };
 
             to_user_sender = match users.get_user(to_user_id.as_str()) {
-                Ok(user) => user.user_data.notifications_tx.clone(),
+                Ok(user) => user.user_data.sender(),
                 Err(e) => return Err(Status::internal(e)),
             };
         }
@@ -71,7 +71,7 @@ impl chat_service_server::ChatService for ChatService {
             }
             chat::outgoing_notification::Types::Message(_message) => {
                 incoming_notification = Some(chat::IncomingNotification {
-                    from: Some(user.user.clone()),
+                    from: Some(user.user()),
                     types: None,
                 });
 
@@ -106,13 +106,11 @@ impl chat_service_server::ChatService for ChatService {
             Err(err) => return Err(Status::internal(err)),
         };
 
-        let response_stream = util::ResponseStream::new(
-            notifications_rx.map(|notification| {
-                Ok(ReceiveResponse {
-                    notification: Some(notification),
-                })
-            }),
-        );
+        let response_stream = util::ResponseStream::new(notifications_rx.map(|notification| {
+            Ok(ReceiveResponse {
+                notification: Some(notification),
+            })
+        }));
 
         Ok(Response::new(response_stream))
     }

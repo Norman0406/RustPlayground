@@ -1,11 +1,11 @@
 mod services;
-mod util;
 mod user_list;
+mod util;
 
 use futures::prelude::*;
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 use tonic::transport::Server;
-use std::sync::{Arc, Mutex};
 use user_list::UserList;
 
 use services::AuthenticationService;

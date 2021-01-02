@@ -23,7 +23,7 @@ impl UserList {
             return Err("User already exists");
         }
 
-        let mut user = User::new(user_id);
+        let user = User::new(user_id);
 
         for other_user in &mut self.users {
             // notify other users that this user is online

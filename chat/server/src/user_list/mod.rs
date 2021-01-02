@@ -12,6 +12,8 @@ pub struct UserList {
     users: Vec<User>,
 }
 
+// TODO: traits to use for administration and authentication by AuthenticationService and ChatService
+
 impl UserList {
     pub fn new() -> UserList {
         UserList { users: vec![] }

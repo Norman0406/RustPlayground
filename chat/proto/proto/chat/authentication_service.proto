@@ -10,8 +10,7 @@ message AuthenticateRequest
 message AuthenticateResponse
 {
     string id = 1;
-
-    // TDOO: add token
+    string token = 2;
 }
 
 service AuthenticationService

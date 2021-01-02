@@ -1,4 +1,6 @@
+use chat::authentication_service_client::AuthenticationServiceClient;
 use chat::chat_service_client::ChatServiceClient;
+use chat::{AuthenticateRequest, AuthenticateResponse};
 use chat::{ReceiveRequest, ReceiveResponse, SendRequest, SendResponse};
 use proto::chat;
 use std::io::Write;
@@ -7,7 +9,7 @@ use tonic::{transport::Endpoint, Request};
 
 async fn connect(
     clients: mpsc::Sender<Option<ChatServiceClient<tonic::transport::Channel>>>,
-    user_id: String,
+    user_name: String,
 ) {
     let endpoint = Endpoint::from_static("http://localhost:50001");
 
@@ -30,41 +32,62 @@ async fn connect(
 
     println!("Connected to {}", endpoint.uri());
 
-    // create a client and append the user id to the metadata
-    let client = ChatServiceClient::with_interceptor(channel, move |mut req: Request<()>| {
-        let user_id = user_id.clone();
-        println!("Name: {}", user_id.as_str());
+    let mut authentication_client = AuthenticationServiceClient::new(channel.clone());
 
-        req.metadata_mut().insert(
-            "user_id",
-            tonic::metadata::AsciiMetadataValue::from_str(&user_id).unwrap(),
+    let mut authenticate_stream = authentication_client
+        .authenticate(Request::new(AuthenticateRequest {
+            name: user_name.clone(),
+        }))
+        .await
+        .unwrap()
+        .into_inner();
+
+    while let Some(response) = authenticate_stream.message().await.unwrap() {
+        let user_id = response.id;
+        let user_token = response.token;
+
+        println!(
+            "Authenticated user {}: id {}, token {}",
+            user_name, user_id, user_token
         );
 
-        Ok(req)
-    });
+        let chat_client =
+            ChatServiceClient::with_interceptor(channel.clone(), move |mut req: Request<()>| {
+                req.metadata_mut().insert(
+                    "user_id",
+                    tonic::metadata::AsciiMetadataValue::from_str(&user_id).unwrap(),
+                );
+                req.metadata_mut().insert(
+                    "user_token",
+                    tonic::metadata::AsciiMetadataValue::from_str(&user_token).unwrap(),
+                );
 
-    clients.send(Some(client)).unwrap();
+                Ok(req)
+            });
+
+        clients.send(Some(chat_client)).unwrap();
+    }
 }
 
-fn get_user_id() -> String {
-    print!("User-ID: ");
+fn get_user_name() -> String {
+    print!("Username: ");
     std::io::stdout().flush().unwrap();
 
-    let mut user_id = String::new();
-    std::io::stdin().read_line(&mut user_id).unwrap();
-    user_id.retain(|c| !c.is_control());
+    let mut user_name = String::new();
+    std::io::stdin().read_line(&mut user_name).unwrap();
+    user_name.retain(|c| !c.is_control());
 
-    user_id
+    user_name
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let user_id = get_user_id();
+    let user_name = get_user_name();
 
     let (sender, receiver) = mpsc::channel();
 
     tokio::spawn(async {
-        connect(sender, user_id).await;
+        connect(sender, user_name).await;
     });
 
     loop {

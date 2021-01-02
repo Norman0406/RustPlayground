@@ -76,7 +76,7 @@ impl chat_service_server::ChatService for ChatService {
                 });
 
                 // TODO: enqueue message id somewhere
-                let message_id = Uuid::new_v5(&Uuid::NAMESPACE_OID, "chat".as_bytes());
+                let message_id = Uuid::new_v4();
 
                 // return the message id of this message
                 reply.message_id = Some(chat::MessageId {

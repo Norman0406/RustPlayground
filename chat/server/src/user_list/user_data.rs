@@ -13,8 +13,8 @@ pub struct UserData {
 
 impl UserData {
     pub fn new(name: String, sender: mpsc::Sender<chat::IncomingNotification>) -> UserData {
-        let id = Uuid::new_v5(&Uuid::NAMESPACE_OID, "chat".as_bytes());
-        let token = Uuid::new_v5(&Uuid::NAMESPACE_OID, "chat".as_bytes());
+        let id = Uuid::new_v4();
+        let token = Uuid::new_v4();
 
         UserData {
             user: chat::User {

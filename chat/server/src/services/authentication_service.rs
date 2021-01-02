@@ -46,13 +46,16 @@ impl authentication_service_server::AuthenticationService for AuthenticationServ
         let (finish_tx, finish_rx) = oneshot::channel();
         let (mut stream_tx, stream_rx) = mpsc::channel(4);
 
-        // report new user id back to caller
-        let response = Ok(AuthenticateResponse { id: user.id() });
-        stream_tx.try_send(response).unwrap();
-
         let users = self.users.clone();
 
         tokio::spawn(async move {
+            // report new user id back to caller
+            let response = Ok(AuthenticateResponse {
+                id: user.id(),
+                token: user.token(),
+            });
+            stream_tx.try_send(response).unwrap();
+
             // wait until stream is finished
             finish_rx.await.unwrap();
 

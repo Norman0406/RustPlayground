@@ -140,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         let welcome_message = format!("Hello {}!", from_user_name);
                         if online.is_online {
-                            client
+                            let message_id = client
                                 .send(Request::new(chat::SendRequest {
                                     notification: Some(chat::OutgoingNotification {
                                         to: Some(chat::User {
@@ -156,7 +156,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     }),
                                 }))
                                 .await
+                                .unwrap()
+                                .into_inner()
+                                .message_id
                                 .unwrap();
+
+                            println!("Message {} was sent", message_id.id);
                         }
                     }
                     chat::incoming_notification::Types::Message(message) => {

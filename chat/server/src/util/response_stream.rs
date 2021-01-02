@@ -1,6 +1,6 @@
 use futures::channel::oneshot;
 use std::pin::Pin;
-use std::task::{Context, Poll, Waker};
+use std::task::{Context, Poll};
 use tokio::stream::Stream;
 
 pub struct ResponseStream<T> {

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package chat;
+
+message AuthenticateRequest
+{
+    string name = 1;
+}
+
+message AuthenticateResponse
+{
+    string id = 1;
+
+    // TDOO: add token
+}
+
+service AuthenticationService
+{
+    rpc Authenticate(AuthenticateRequest) returns (stream AuthenticateResponse);
+}

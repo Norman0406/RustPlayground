@@ -1,4 +1,4 @@
-use crate::user_list::AuthorizeUsers;
+use crate::user_list::UserManagement;
 use crate::util;
 use chat::authentication_service_server;
 use chat::*;
@@ -9,12 +9,12 @@ use tokio::sync::mpsc;
 use tonic::{Request, Response, Status};
 
 pub struct AuthenticationService {
-    users: Arc<Mutex<dyn AuthorizeUsers + Send + Sync>>,
+    users: Arc<Mutex<dyn UserManagement + Send + Sync>>,
 }
 
 impl AuthenticationService {
     pub fn new(
-        users: Arc<Mutex<dyn AuthorizeUsers + Send + Sync>>,
+        users: Arc<Mutex<dyn UserManagement + Send + Sync>>,
     ) -> authentication_service_server::AuthenticationServiceServer<AuthenticationService> {
         let service = AuthenticationService { users: users };
 

@@ -1,7 +1,7 @@
 use chat::authentication_service_client::AuthenticationServiceClient;
 use chat::chat_service_client::ChatServiceClient;
-use chat::{AuthenticateRequest, AuthenticateResponse};
-use chat::{ReceiveRequest, ReceiveResponse, SendRequest, SendResponse};
+use chat::AuthenticateRequest;
+use chat::ReceiveRequest;
 use proto::chat;
 use std::io::Write;
 use std::sync::mpsc;

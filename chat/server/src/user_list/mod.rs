@@ -12,14 +12,12 @@ pub struct UserList {
     users: Vec<User>,
 }
 
-// TODO: traits to use for administration and authentication by AuthenticationService and ChatService
-
-pub trait AuthorizeUsers {
+pub trait UserManagement {
     fn create_user(&mut self, user_id: &str) -> Result<UserData, &str>;
     fn remove_user(&mut self, user_id: &str) -> Result<(), String>;
 }
 
-impl AuthorizeUsers for UserList {
+impl UserManagement for UserList {
     fn create_user(&mut self, user_id: &str) -> Result<UserData, &str> {
         // check if user exists
         if self.users.iter().position(|v| v.id() == user_id).is_some() {

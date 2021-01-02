@@ -104,6 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let user = notification.from.unwrap();
                 let from_user_id = user.id;
                 let from_user_name = user.name;
+                let from_user = format!("{} ({})", from_user_name, from_user_id);
 
                 let notification_type = notification.types.unwrap();
                 match notification_type {
@@ -111,13 +112,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         println!(
                             "Message {} was delivered to user {}",
                             delivered.message_id.unwrap().id,
-                            from_user_id
+                            from_user
                         );
                     }
                     chat::incoming_notification::Types::Read(read) => {
                         println!(
                             "User {} read message {}",
-                            from_user_id,
+                            from_user,
                             read.message_id.unwrap().id
                         );
                     }
@@ -127,7 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             false => "not typing",
                         };
 
-                        println!("User {} is {}", from_user_id, typing_nottyping);
+                        println!("User {} is {}", from_user, typing_nottyping);
                     }
                     chat::incoming_notification::Types::Online(online) => {
                         let online_offline = match online.is_online {
@@ -135,12 +136,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             false => "offline",
                         };
 
-                        println!("User {} is {}", from_user_name, online_offline);
+                        println!("User {} is {}", from_user, online_offline);
+
+                        let welcome_message = format!("Hello {}!", from_user_name);
+                        if online.is_online {
+                            client
+                                .send(Request::new(chat::SendRequest {
+                                    notification: Some(chat::OutgoingNotification {
+                                        to: Some(chat::User {
+                                            id: from_user_id,
+                                            name: from_user_name,
+                                        }),
+                                        types: Some(chat::outgoing_notification::Types::Message(
+                                            chat::MessageContent {
+                                                content: welcome_message,
+                                                time_sent: None,
+                                            },
+                                        )),
+                                    }),
+                                }))
+                                .await
+                                .unwrap();
+                        }
                     }
                     chat::incoming_notification::Types::Message(message) => {
                         println!(
-                            "Message from user {}: {}",
-                            from_user_id,
+                            "Message {} from user {}: {}",
+                            message.message_id.unwrap().id,
+                            from_user,
                             message.message_content.unwrap().content
                         );
                     }

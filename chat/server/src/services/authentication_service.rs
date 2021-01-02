@@ -40,7 +40,10 @@ impl authentication_service_server::AuthenticationService for AuthenticationServ
                 Err(_) => return Err(Status::internal("unable to acquire lock")),
             };
 
-            user = users.create_user(&request.name).unwrap();
+            user = match users.create_user(&request.name) {
+                Ok(user) => user,
+                Err(err) => return Err(Status::internal(err)),
+            };
         }
 
         let (finish_tx, finish_rx) = oneshot::channel();
@@ -54,6 +57,7 @@ impl authentication_service_server::AuthenticationService for AuthenticationServ
                 id: user.id(),
                 token: user.token(),
             });
+
             stream_tx.try_send(response).unwrap();
 
             // wait until stream is finished

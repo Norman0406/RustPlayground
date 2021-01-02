@@ -39,9 +39,19 @@ impl chat_service_server::ChatService for ChatService {
         };
 
         let request = request.into_inner();
-        let notification = request.notification.unwrap();
+        let notification = match request.notification {
+            Some(notification) => notification,
+            None => return Err(Status::invalid_argument("request.notification is invalid")),
+        };
 
-        let to_user_id = notification.to.unwrap().id;
+        let to_user = match notification.to {
+            Some(user) => user,
+            None => {
+                return Err(Status::invalid_argument(
+                    "request.notification.to is invalid",
+                ))
+            }
+        };
 
         // get the receiving user
         let mut to_user_sender;
@@ -51,7 +61,7 @@ impl chat_service_server::ChatService for ChatService {
                 Err(_) => return Err(Status::internal("unable to acquire lock")),
             };
 
-            to_user_sender = match users.get_user(to_user_id.as_str()) {
+            to_user_sender = match users.get_user(to_user.id.as_str()) {
                 Ok(user) => user.user_data.sender(),
                 Err(e) => return Err(Status::internal(e)),
             };
@@ -60,7 +70,15 @@ impl chat_service_server::ChatService for ChatService {
         // create a default reply
         let mut reply = chat::SendResponse { message_id: None };
 
-        let notification_type = notification.types.unwrap();
+        let notification_type = match notification.types {
+            Some(notification_type) => notification_type,
+            None => {
+                return Err(Status::invalid_argument(
+                    "request.notification.types is invalid",
+                ))
+            }
+        };
+
         let mut incoming_notification = None;
         match notification_type {
             chat::outgoing_notification::Types::Typing(_typing) => {
@@ -69,28 +87,37 @@ impl chat_service_server::ChatService for ChatService {
             chat::outgoing_notification::Types::Read(_read) => {
                 // TODO
             }
-            chat::outgoing_notification::Types::Message(_message) => {
-                incoming_notification = Some(chat::IncomingNotification {
-                    from: Some(user.user()),
-                    types: None,
-                });
-
+            chat::outgoing_notification::Types::Message(message) => {
                 // TODO: enqueue message id somewhere
                 let message_id = Uuid::new_v4();
+                let message_id_string = message_id.to_hyphenated().to_string();
+
+                incoming_notification = Some(chat::IncomingNotification {
+                    from: Some(user.user()),
+                    types: Some(chat::incoming_notification::Types::Message(
+                        chat::incoming_notification::Message {
+                            message_id: Some(chat::MessageId {
+                                id: message_id_string.clone(),
+                            }),
+                            message_content: Some(message),
+                        },
+                    )),
+                });
 
                 // return the message id of this message
                 reply.message_id = Some(chat::MessageId {
-                    id: message_id.to_hyphenated().to_string(),
+                    id: message_id_string,
                 });
             }
         }
 
+        let incoming_notification = match incoming_notification {
+            Some(notification) => notification,
+            None => return Err(Status::internal("notification could not be created")),
+        };
+
         // send notification to receiving user
-        if incoming_notification.is_none()
-            || to_user_sender
-                .try_send(incoming_notification.unwrap())
-                .is_err()
-        {
+        if to_user_sender.try_send(incoming_notification).is_err() {
             return Err(Status::internal("Could not send notification"));
         }
 

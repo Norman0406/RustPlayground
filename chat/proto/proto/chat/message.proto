@@ -31,7 +31,8 @@ message OutgoingNotification
 
     User to = 1;
 
-    oneof types {
+    oneof types
+    {
         Typing typing = 2;
         Read read = 3;
         MessageContent message = 4;
@@ -70,7 +71,8 @@ message IncomingNotification
 
     User from = 1;
 
-    oneof types {
+    oneof types
+    {
         Delivered delivered = 2;
         Read read = 3;
         Typing typing = 4;
